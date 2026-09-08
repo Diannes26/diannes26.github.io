@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>求关注</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700;800&display=swap" rel="stylesheet">
+
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    :root { --bg: #ffffff; }
+
+    body {
+        background: var(--bg);
+        color: #1a1a1a;
+        font-family: "Google Sans", "Microsoft YaHei", "PingFang SC", sans-serif;
+        text-rendering: optimizeLegibility;
+        min-height: 100vh;
+        overflow: hidden;
+    }
+
+    .page {
+        position: relative;
+        width: 100%; height: 100vh;
+        display: flex; justify-content: center; align-items: center;
+        transition: transform 0.5s cubic-bezier(0.32, 0.72, 0, 1);
+    }
+
+    /* ============ 菜单按钮（左上角） ============ */
+    /* 默认（开关关）：纯色扁平，按原文件来 */
+    .menu-btn {
+        position: fixed; top: 22px; left: 22px;
+        width: 58px; height: 58px;
+        border-radius: 50%;
+        display: flex; flex-direction: column;
+        justify-content: center; align-items: center; gap: 6px;
+        cursor: grab; z-index: 1000;
+        border: 1px solid rgba(0,0,0,0.12);
+        background: #e8e8e8;
+        box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+        transition: background 0.3s, box-shadow 0.3s, opacity 0.3s;
+        transform: translateZ(0);
+        will-change: transform;
+    }
+    .menu-btn:hover {
+        background: #dedede;
+    }
+    .menu-btn.dragging { cursor: grabbing; }
+    body.menu-open .menu-btn { opacity: 0; pointer-events: none; }
+
+    /* 按下滤镜：inset:-1px 覆盖到边框外沿；z-index 5 盖住玻璃光环 */
+    .menu-btn .white-filter {
+        position: absolute; inset: -1px;
+        border-radius: 50%; pointer-events: none; z-index: 5;
+        background: rgba(255,255,255,0);
+        transition: background 0.2s ease;
+    }
+    .menu-btn.dragging .white-filter {
+        background: rgba(255,255,255,0.85);
+        box-shadow: inset 0 0 0 1px rgba(0,0,0,0.06);
+    }
+
+    .menu-btn .bars {
+        position: relative; z-index: 6;
+        width: 24px; height: 18px;
+        display: flex; flex-direction: column;
+        justify-content: space-between;
+        transform: translate(0,0); will-change: transform;
+    }
+    .menu-btn .bars span {
+        display: block; width: 100%; height: 2px;
+        background: #333333;
+        border-radius: 2px;
+    }
+
+    /* ============ 页面主体 ============ */
+    .card {
+        background: transparent;
+        border: none; border-radius: 20px;
+        margin-top: 30px; padding: 44px 40px;
+        text-align: left; max-width: 520px; width: 90%;
+        box-shadow: none;
+    }
+    .logo-row {
+        display: flex; align-items: center; justify-content: center;
+        gap: 0; margin-bottom: 14px;
+    }
+    .logo {
+        position: absolute; top: 150px; left: 50%;
+        transform: translateX(-50%);
+        width: 208px; height: 117px;   /* 16:9 */
+        display: block; border-radius: 6px;
+        background: #ffffff; border: 1px solid #ffffff;
+        box-shadow: none; padding: 0; z-index: 10;
+        overflow: hidden;
+    }
+    .brand-name {
+        font-size: 58px; font-weight: 800;
+        letter-spacing: -1px; line-height: 1;
+        color: #1a1a1a;
+    }
+    h1 { font-size: 24px; margin-bottom: 18px; font-weight: 700; color: #1a1a1a; }
+    p  { font-size: 16px; margin-bottom: 28px; opacity: 0.7; color: #333; }
+
+    /* ============ B站主页按钮：靛蓝 #1E6EDC ============ */
+    /* 默认（开关关）：纯色扁平 */
+    .btn-wrapper { text-align: center; margin-top: 60px; }
+
+    .page-footer {
+        position: fixed;
+        left: 0; right: 0; bottom: 26px;
+        text-align: center;
+        pointer-events: none;
+        z-index: 1;
+    }
+    .page-footer .footer-brand {
+        font-size: 15px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        color: rgba(0, 0, 0, 0.42);
+    }
+    .page-footer .footer-version {
+        margin-top: 5px;
+        font-size: 12px;
+        letter-spacing: 0.4px;
+        color: rgba(0, 0, 0, 0.30);
+    }
+    a.btn {
+        position: relative;
+        display: inline-flex; align-items: center; justify-content: center;
+        padding: 10px 26px; min-width: 120px;
+        text-decoration: none;
+        font-size: 15px; font-weight: 600;
+        color: #ffffff;
+        border-radius: 50px;
+        border: 1px solid rgba(30,110,220,0.6);
+        background: #1E6EDC;
+        box-shadow: 0 8px 30px rgba(30,110,220,0.4);
+        transition: background 0.3s, box-shadow 0.3s;
+        overflow: hidden;
+        transform: translateZ(0);
+        will-change: transform;
+        cursor: pointer;
+    }
+    a.btn:hover {
+        background: #185FA8;
+        box-shadow: 0 12px 38px rgba(30,110,220,0.5);
+    }
+    a.btn.dragging { cursor: grabbing; }
+
+    /* 按下滤镜：inset:-1px 覆盖到边框外沿；z-index 5 盖住玻璃光环 */
+    a.btn .white-filter {
+        position: absolute; inset: -1px;
+        border-radius: inherit; pointer-events: none; z-index: 5;
+        background: rgba(255,255,255,0);
+        transition: background 0.2s ease;
+    }
+    a.btn.dragging .white-filter {
+        background: rgba(255,255,255,0.55);
+        box-shadow: inset 0 0 0 1px rgba(30,110,220,0.55);
+    }
+    a.btn .btn-text { position: relative; z-index: 6; }
+
+    /* ============ 设置菜单 ============ */
+    /* 默认（开关关）：纯色扁平 */
+    .settings {
+        position: fixed;
+        left: 0; top: 0;
+        width: 100%; height: 100%;
+        z-index: 2000;
+        background: #f2f2f2;
+        transform: translateY(100%);
+        transition: transform 0.55s cubic-bezier(0.32, 0.72, 0, 1);
+        display: flex; flex-direction: column;
+        will-change: transform;
+    }
+    body.menu-open .settings { transform: translateY(0); }
+
+    .settings__bar { position: relative; height: 88px; flex-shrink: 0; }
+
+    /* 关闭按钮：默认纯色扁平 */
+    .close-btn {
+        position: absolute;
+        top: 22px; left: 22px;
+        width: 58px; height: 58px;
+        border-radius: 50%;
+        display: flex; justify-content: center; align-items: center;
+        cursor: pointer;
+        border: 1px solid rgba(0,0,0,0.12);
+        background: #e8e8e8;
+        box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+        transition: background 0.3s, box-shadow 0.3s, transform 0.2s;
+        transform: translateZ(0);
+        z-index: 10;
+    }
+    .close-btn:hover { background: #dedede; }
+    .close-btn:active { transform: scale(0.92); }
+
+    .close-btn .cross { position: relative; z-index: 6; width: 24px; height: 24px; }
+    .close-btn .cross::before,
+    .close-btn .cross::after {
+        content: '';
+        position: absolute;
+        top: 50%; left: 50%;
+        width: 24px; height: 2.4px;
+        background: #333333;
+        border-radius: 2px;
+        transform-origin: center;
+    }
+    .close-btn .cross::before { transform: translate(-50%, -50%) rotate(45deg); }
+    .close-btn .cross::after  { transform: translate(-50%, -50%) rotate(-45deg); }
+
+    .settings__content {
+        flex: 1;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: flex-start;
+        gap: 18px;
+        padding: 8px 24px 60px;
+        overflow-y: auto;
+    }
+    .settings__title {
+        font-size: 30px; font-weight: 800;
+        letter-spacing: -0.3px;
+        color: #1a1a1a;
+        margin-bottom: 8px;
+    }
+    .settings__item {
+        width: 100%; max-width: 460px;
+        padding: 18px 20px;
+        border-radius: 16px;
+        background: rgba(0,0,0,0.03);
+        border: 1px solid rgba(0,0,0,0.08);
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 14px;
+    }
+    .settings__item-label { font-size: 16px; font-weight: 600; color: #1a1a1a; }
+    .settings__item-desc { font-size: 13px; color: #888; margin-top: 3px; }
+
+    .toggle {
+        width: 48px; height: 27px; border-radius: 50px;
+        background: rgba(0,0,0,0.2);
+        position: relative; flex-shrink: 0;
+        transition: background 0.25s;
+    }
+    .toggle::after {
+        content: '';
+        position: absolute; top: 2px; left: 2px;
+        width: 23px; height: 23px; border-radius: 50%;
+        background: #fff;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+        transition: transform 0.25s;
+    }
+    .toggle.on { background: #1E6EDC; }
+    .toggle.on::after { transform: translateX(21px); }
+
+    /* ============================================================
+       ★ iOS 26 / 27 Liquid Glass 液态玻璃材质
+       组成：模糊折射 + 边缘光环(折射亮边) + 顶部镜面高光 + 多层阴影(厚度感)
+       开关关闭 → 纯色扁平；开关开启 → 此液态玻璃材质
+       ============================================================ */
+
+    /* ---------- 圆形玻璃按钮（菜单按钮 / 关闭按钮） ---------- */
+    body.glass-on .menu-btn,
+    body.glass-on .close-btn {
+        border: 1px solid rgba(255, 255, 255, 0.42);
+        /* 本体半透明：不再叠加白色遮罩，靠 backdrop-filter 透出底层 */
+        background: rgba(255, 255, 255, 0.07);
+        backdrop-filter: blur(20px) saturate(200%) brightness(1.06);
+        -webkit-backdrop-filter: blur(20px) saturate(200%) brightness(1.06);
+        /* 多层阴影：外扩散 + 内高光(玻璃厚度) + 内底阴影 */
+        box-shadow:
+            /* ---- 内侧边缘反射（iOS 26/27 玻璃内壁反光）---- */
+            inset 0 1px 0.5px rgba(255, 255, 255, 0.85),   /* 上内缘：主反射，最强 */
+            inset 1px 0 0.5px rgba(255, 255, 255, 0.48),   /* 左内缘 */
+            inset -1px 0 0.5px rgba(255, 255, 255, 0.40),  /* 右内缘 */
+            inset 0 -1px 0.5px rgba(255, 255, 255, 0.38),  /* 下内缘：环境反射 */
+            inset 0 2px 6px rgba(0, 0, 0, 0.05),           /* 内壁厚度阴影 */
+            /* ---- 外扩散阴影 ---- */
+            0 12px 32px rgba(0, 0, 0, 0.10),
+            0 2px 8px rgba(0, 0, 0, 0.06);
+        transition: background 0.3s, box-shadow 0.3s;
+    }
+
+    /* 顶部镜面高光斑（specular highlight） */
+    body.glass-on .menu-btn::before,
+    body.glass-on .close-btn::before {
+        content: '';
+        position: absolute;
+        top: 3px;
+        left: 18%;
+        width: 64%;
+        height: 34%;
+        border-radius: 50%;
+        background: linear-gradient(
+            180deg,
+            rgba(255, 255, 255, 0.22) 0%,
+            rgba(255, 255, 255, 0) 100%
+        );
+        filter: blur(1.5px);
+        pointer-events: none;
+        z-index: 2;
+    }
+
+    /* 内容始终压在玻璃反光之上，保证清晰可读 */
+    body.glass-on .menu-btn .bars { z-index: 6; }
+    body.glass-on .close-btn .cross { position: relative; z-index: 6; }
+
+    body.glass-on .menu-btn:hover,
+    body.glass-on .close-btn:hover {
+        background: rgba(255, 255, 255, 0.16);
+        box-shadow:
+            /* 内反射（hover 时略微增强） */
+            inset 0 1px 0.5px rgba(255, 255, 255, 0.95),
+            inset 1px 0 0.5px rgba(255, 255, 255, 0.58),
+            inset -1px 0 0.5px rgba(255, 255, 255, 0.50),
+            inset 0 -1px 0.5px rgba(255, 255, 255, 0.46),
+            inset 0 2px 6px rgba(0, 0, 0, 0.06),
+            0 16px 40px rgba(0, 0, 0, 0.13),
+            0 3px 10px rgba(0, 0, 0, 0.07);
+    }
+
+    /* ---------- 设置菜单面板（大块玻璃） ---------- */
+    body.glass-on .settings {
+        background: rgba(255, 255, 255, 0.20);
+        backdrop-filter: blur(30px) saturate(190%);
+        -webkit-backdrop-filter: blur(30px) saturate(190%);
+    }
+    /* 面板顶部边缘高光 */
+    body.glass-on .settings::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        height: 1px;
+        background: linear-gradient(
+            90deg,
+            rgba(255, 255, 255, 0) 0%,
+            rgba(255, 255, 255, 0.90) 50%,
+            rgba(255, 255, 255, 0) 100%
+        );
+        pointer-events: none;
+        z-index: 5;
+    }
+
+    /* ---------- B站主页按钮（蓝色玻璃胶囊，保留 #1E6EDC） ---------- */
+    body.glass-on a.btn {
+        border: 1px solid rgba(255, 255, 255, 0.34);
+        /* 本体半透明蓝（不叠白色遮罩，蓝色本身透出）浅靛蓝 */
+        background: rgba(30, 110, 220, 0.82);
+        backdrop-filter: blur(18px) saturate(180%);
+        -webkit-backdrop-filter: blur(18px) saturate(180%);
+        box-shadow:
+            /* ---- 内侧边缘反射（iOS 26/27 玻璃内壁反光）---- */
+            inset 0 1px 0.5px rgba(255, 255, 255, 0.90),   /* 上内缘：主反射，最强 */
+            inset 1px 0 0.5px rgba(255, 255, 255, 0.52),   /* 左内缘 */
+            inset -1px 0 0.5px rgba(255, 255, 255, 0.44),  /* 右内缘 */
+            inset 0 -1px 0.5px rgba(255, 255, 255, 0.42),  /* 下内缘：环境反射 */
+            inset 0 2px 6px rgba(30, 110, 220, 0.12),      /* 内壁蓝色厚度阴影 */
+            /* ---- 外扩散阴影 ---- */
+            0 12px 32px rgba(30, 110, 220, 0.28),
+            0 2px 8px rgba(30, 110, 220, 0.16);
+    }
+    /* 胶囊顶部镜面高光 */
+    body.glass-on a.btn::before {
+        content: '';
+        position: absolute;
+        top: 2px;
+        left: 12%;
+        width: 76%;
+        height: 40%;
+        border-radius: 50%;
+        background: linear-gradient(
+            180deg,
+            rgba(255, 255, 255, 0.16) 0%,
+            rgba(255, 255, 255, 0) 100%
+        );
+        filter: blur(1.5px);
+        pointer-events: none;
+        z-index: 2;
+    }
+    body.glass-on a.btn .btn-text { z-index: 6; }
+
+    body.glass-on a.btn:hover {
+        background: rgba(24, 92, 190, 0.90);
+        box-shadow:
+            /* 内反射（hover 时略微增强） */
+            inset 0 1px 0.5px rgba(255, 255, 255, 1),
+            inset 1px 0 0.5px rgba(255, 255, 255, 0.62),
+            inset -1px 0 0.5px rgba(255, 255, 255, 0.54),
+            inset 0 -1px 0.5px rgba(255, 255, 255, 0.50),
+            inset 0 2px 6px rgba(24, 92, 190, 0.16),
+            0 16px 40px rgba(24, 92, 190, 0.34),
+            0 3px 10px rgba(24, 92, 190, 0.20);
+    }
+</style>
+</head>
+<body>
+
+<div class="page" id="page">
+    <button class="menu-btn" id="menuBtn" aria-label="菜单">
+        <span class="white-filter"></span>
+        <span class="bars">
+            <span></span><span></span><span></span>
+        </span>
+    </button>
+
+    <svg width="0" height="0" style="position:absolute;">
+        <defs>
+            <path id="big-trapezoid"
+                  d="M 14,10 L 86,25 A 4 4 0 0 1 90,29 L 90,71 A 4 4 0 0 1 86,75 L 14,90 A 4 4 0 0 1 10,86 L 10,14 A 4 4 0 0 1 14,10 Z"
+                  fill="#000"/>
+            <polygon id="small-trapezoid" points="32,28 78,36 78,64 32,72" fill="#fff"/>
+        </defs>
+    </svg>
+
+    <svg class="logo" viewBox="0 0 160 90" xmlns="http://www.w3.org/2000/svg">
+        <rect width="160" height="90" rx="6" ry="6" fill="#ffffff"/>
+        <g transform="translate(80,45) scale(0.9) translate(-50,-50) scale(-1,1) translate(-100,0)">
+            <use href="#big-trapezoid"/>
+            <use href="#small-trapezoid"/>
+        </g>
+    </svg>
+
+    <div class="card">
+        <div class="logo-row">
+            <span class="brand-name">Diannes</span>
+        </div>
+        <div class="btn-wrapper">
+            <a href="https://space.bilibili.com/3493267880545214" target="_blank" class="btn" id="biliBtn">
+                <span class="white-filter"></span>
+                <span class="btn-text">B站主页</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- ============ 底部版本信息 ============ -->
+    <footer class="page-footer">
+        <div class="footer-brand">Diannes Web</div>
+        <div class="footer-version">Version:Beta 1.1</div>
+    </footer>
+</div>
+
+<!-- ============ 设置菜单（仅保留「液态玻璃」一项） ============ -->
+<aside class="settings" id="settings" aria-hidden="true">
+    <div class="settings__bar">
+        <button class="close-btn" id="closeBtn" aria-label="关闭设置">
+            <span class="cross"></span>
+        </button>
+    </div>
+    <div class="settings__content">
+        <div class="settings__title">设置</div>
+
+        <div class="settings__item">
+            <div>
+                <div class="settings__item-label">液态玻璃</div>
+                <div class="settings__item-desc">增强视觉效果</div>
+            </div>
+            <div class="toggle on" id="glassToggle"></div>   <!-- ★ 默认开启 -->
+        </div>
+    </div>
+</aside>
+
+<script>
+/* ============ 通用拖拽弹性（完全搬运自原文件） ============ */
+function makeGlassButton(btn, contentEl) {
+    const FOLLOW   = 0.03;   /* 位移幅度：更小，只轻微跟手 */
+    const SPRING   = 0.18;
+    const FRICTION = 0.72;
+
+    let dragging = false;
+    let startX = 0, startY = 0;
+    let dx = 0, dy = 0;
+    let vx = 0, vy = 0;
+    let rafId = null;
+
+    const CONTENT_MOVE = 0.003;   /* 文字/图标微动：极小，几乎只看得出微妙偏移 */
+    let cx = 0, cy = 0;
+
+    /* 位移不再设上限（已删除 clamp 限制），完全跟随手指 */
+
+    function render() {
+        btn.style.transform =
+            'translate3d(' + (dx * FOLLOW) + 'px,' + (dy * FOLLOW) + 'px,0)';
+        if (contentEl) {
+            cx += (dx * CONTENT_MOVE - cx) * 0.3;
+            cy += (dy * CONTENT_MOVE - cy) * 0.3;
+            contentEl.style.transform =
+                'translate3d(' + cx.toFixed(2) + 'px,' + cy.toFixed(2) + 'px,0)';
+        }    }
+
+    function onDown(e) {
+        dragging = true;
+        btn.classList.add('dragging');
+        const p = e.touches ? e.touches[0] : e;
+        startX = p.clientX - dx;
+        startY = p.clientY - dy;
+        cancelAnimationFrame(rafId);
+        if (e.cancelable) e.preventDefault();
+    }
+    function onMove(e) {
+        if (!dragging) return;
+        const p = e.touches ? e.touches[0] : e;
+        dx = p.clientX - startX;
+        dy = p.clientY - startY;
+        render();
+        if (e.cancelable) e.preventDefault();
+    }
+    function onUp() {
+        if (!dragging) return;
+        dragging = false;
+        btn.classList.remove('dragging');
+        vx = dx * 0.03; vy = dy * 0.03;
+        loop();
+    }
+    function loop() {
+        vx += (0 - dx) * SPRING; vy += (0 - dy) * SPRING;
+        vx *= FRICTION; vy *= FRICTION;
+        dx += vx; dy += vy;
+        render();
+        if (Math.abs(dx) < 0.2 && Math.abs(dy) < 0.2 && Math.abs(vx) < 0.2 && Math.abs(vy) < 0.2) {
+            dx = dy = vx = vy = 0; cx = cy = 0;
+            render(); return;
+        }
+        rafId = requestAnimationFrame(loop);
+    }
+
+    btn.addEventListener('pointerdown', onDown);
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+    btn.addEventListener('touchstart', onDown, { passive: false });
+    window.addEventListener('touchmove', onMove, { passive: false });
+    window.addEventListener('touchend', onUp);
+
+    render();
+}
+
+/* ============ 绑定拖拽（不影响点击） ============ */
+const menuBtn  = document.getElementById('menuBtn');
+const biliBtn  = document.getElementById('biliBtn');
+const settings = document.getElementById('settings');
+const closeBtn = document.getElementById('closeBtn');
+const body     = document.body;
+
+makeGlassButton(menuBtn, menuBtn.querySelector('.bars'));
+makeGlassButton(biliBtn, biliBtn.querySelector('.btn-text'));
+
+/* ============ 菜单开关 ============ */
+function openMenu() {
+    body.classList.add('menu-open');
+    settings.setAttribute('aria-hidden', 'false');
+}
+function closeMenu() {
+    body.classList.remove('menu-open');
+    settings.setAttribute('aria-hidden', 'true');
+}
+
+/* 菜单按钮：拖拽时不触发点击 */
+let menuDownX = 0, menuDownY = 0;
+menuBtn.addEventListener('pointerdown', function (e) {
+    menuDownX = e.clientX; menuDownY = e.clientY;
+});
+menuBtn.addEventListener('click', function (e) {
+    const moved = Math.abs(e.clientX - menuDownX) + Math.abs(e.clientY - menuDownY);
+    if (moved < 6) openMenu();
+});
+
+/* 关闭按钮 */
+closeBtn.addEventListener('click', closeMenu);
+
+/* Esc 关闭 */
+document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && body.classList.contains('menu-open')) closeMenu();
+});
+
+/* ============ ★ 液态玻璃开关 ============ */
+const glassToggle = document.getElementById('glassToggle');
+glassToggle.addEventListener('click', function () {
+    const on = glassToggle.classList.toggle('on');
+    if (on) {
+        body.classList.add('glass-on');
+    } else {
+        body.classList.remove('glass-on');
+    }
+});
+
+/* ★ 默认开启液态玻璃：无需点菜单即可生效 */
+glassToggle.classList.add('on');
+document.body.classList.add('glass-on');
+
+/* ============ 反光已固定在左上 / 右下转角，不再随陀螺仪游走 ============ */
+</script>
+</body>
+</html>
